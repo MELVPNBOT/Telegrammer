@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>GitChat Messenger</title>
+    <style>
+        body { font-family: sans-serif; background: #1a1a1a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .container { background: #2d2d2d; padding: 20px; border-radius: 10px; width: 350px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        input { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; border-radius: 5px; border: none; }
+        button { width: 100%; padding: 10px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        #chat-box { height: 300px; overflow-y: auto; background: #121212; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container" id="auth-form">
+    <h2>Вход / Регистрация</h2>
+    <input type="email" id="email" placeholder="Почта">
+    <input type="password" id="pass" placeholder="Пароль">
+    <input type="password" id="prog-pass" placeholder="Пароль от проги">
+    <button onclick="handleAuth()">Войти</button>
+</div>
+
+<div class="container hidden" id="messenger">
+    <h3 id="user-title">Чат</h3>
+    <div id="chat-box"></div>
+    <input type="text" id="msg-input" placeholder="Сообщение...">
+    <button onclick="sendMessage()">Отправить</button>
+</div>
+
+<script>
+    const GITHUB_TOKEN = 'ТВОЙ_ТОКЕН_ЗДЕСЬ';
+    const REPO = 'ТВОЙ_ЛОГИН/ТВОЙ_РЕПОЗИТОРИЙ';
+    let currentUser = null;
+
+    async function githubFetch(path, method = 'GET', body = null) {
+        const url = `https://api.github.com/repos/${REPO}/contents/${path}`;
+        const headers = { Authorization: `token ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json' };
+        
+        const res = await fetch(url, { headers });
+        const data = await res.json();
+        
+        if (method === 'PUT') {
+            return fetch(url, {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify({
+                    message: "update",
+                    content: btoa(JSON.stringify(body, null, 2)),
+                    sha: data.sha
+                })
+            });
+        }
+        return JSON.parse(atob(data.content));
+    }
+
+    async function handleAuth() {
+        const email = document.getElementById('email').value;
+        const pass = document.getElementById('pass').value;
+        const progPass = document.getElementById('prog-pass').value;
+
+        let users = await githubFetch('users.json');
+        let user = users.find(u => u.email === email);
+
+        if (!user) {
+            // Регистрация, если пользователя нет
+            user = { email, pass, progPass, username: email.split('@')[0] };
+            users.push(user);
+            await githubFetch('users.json', 'PUT', users);
+            alert("Регистрация успешна!");
+        }
+
+        if (user.pass === pass && user.progPass === progPass) {
+            currentUser = user;
+            document.getElementById('auth-form').classList.add('hidden');
+            document.getElementById('messenger').classList.remove('hidden');
+            document.getElementById('user-title').innerText = `Вы: ${user.username}`;
+            loadMessages();
+            setInterval(loadMessages, 5000); // Обновление раз в 5 сек
+        } else {
+            alert("Ошибка данных!");
+        }
+    }
+
+    async function loadMessages() {
+        const msgs = await githubFetch('messages.json');
+        const box = document.getElementById('chat-box');
+        box.innerHTML = msgs.map(m => `<div><b>${m.user}:</b> ${m.text}</div>`).join('');
+        box.scrollTop = box.scrollHeight;
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById('msg-input');
+        if (!input.value) return;
+
+        let msgs = await githubFetch('messages.json');
+        msgs.push({ user: currentUser.username, text: input.value });
+        await githubFetch('messages.json', 'PUT', msgs);
+        input.value = '';
+        loadMessages();
+    }
+</script>
+</body>
+</html>
