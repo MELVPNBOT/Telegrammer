@@ -2,57 +2,84 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>GitChat Messenger</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MELVPN Messenger</title>
     <style>
-        body { font-family: sans-serif; background: #1a1a1a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .container { background: #2d2d2d; padding: 20px; border-radius: 10px; width: 350px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        input { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; border-radius: 5px; border: none; }
-        button { width: 100%; padding: 10px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; }
-        #chat-box { height: 300px; overflow-y: auto; background: #121212; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f0f0f; color: #e0e0e0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .container { background: #1e1e1e; padding: 25px; border-radius: 12px; width: 380px; box-shadow: 0 8px 32px rgba(0,0,0,0.8); border: 1px solid #333; }
+        h2, h3 { text-align: center; color: #00ff88; margin-top: 0; }
+        input { width: 100%; padding: 12px; margin: 8px 0; box-sizing: border-box; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: white; outline: none; }
+        input:focus { border-color: #00ff88; }
+        button { width: 100%; padding: 12px; background: #00ff88; color: #000; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        button:hover { background: #00cc6e; }
+        #chat-box { height: 350px; overflow-y: auto; background: #141414; padding: 15px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #333; display: flex; flex-direction: column; }
+        .msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 8px; max-width: 80%; word-wrap: break-word; }
+        .msg.own { background: #005c4b; align-self: flex-end; color: white; }
+        .msg.other { background: #333; align-self: flex-start; }
         .hidden { display: none; }
+        .user-info { font-size: 0.8em; color: #888; margin-bottom: 4px; }
     </style>
 </head>
 <body>
 
 <div class="container" id="auth-form">
-    <h2>Вход / Регистрация</h2>
-    <input type="email" id="email" placeholder="Почта">
-    <input type="password" id="pass" placeholder="Пароль">
+    <h2>MELVPN AUTH</h2>
+    <input type="email" id="email" placeholder="Email">
+    <input type="password" id="pass" placeholder="Пароль аккаунта">
     <input type="password" id="prog-pass" placeholder="Пароль от проги">
-    <button onclick="handleAuth()">Войти</button>
+    <button onclick="handleAuth()">Войти / Создать</button>
 </div>
 
 <div class="container hidden" id="messenger">
     <h3 id="user-title">Чат</h3>
     <div id="chat-box"></div>
-    <input type="text" id="msg-input" placeholder="Сообщение...">
-    <button onclick="sendMessage()">Отправить</button>
+    <div style="display:flex; gap: 5px;">
+        <input type="text" id="msg-input" placeholder="Сообщение...">
+        <button style="width: 80px;" onclick="sendMessage()">➤</button>
+    </div>
 </div>
 
 <script>
-    const GITHUB_TOKEN = 'ТВОЙ_ТОКЕН_ЗДЕСЬ';
-    const REPO = 'ТВОЙ_ЛОГИН/ТВОЙ_РЕПОЗИТОРИЙ';
+    // Твои данные из запроса
+    const GITHUB_TOKEN = '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';
+    const REPO = 'MELVPNBOT/Telegrammer';
+    
     let currentUser = null;
+    let lastSha = { users: null, messages: null };
 
     async function githubFetch(path, method = 'GET', body = null) {
         const url = `https://api.github.com/repos/${REPO}/contents/${path}`;
-        const headers = { Authorization: `token ${GITHUB_TOKEN}`, Accept: 'application/vnd.github.v3+json' };
+        const headers = { 
+            'Authorization': `token ${GITHUB_TOKEN}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Cache-Control': 'no-cache'
+        };
         
-        const res = await fetch(url, { headers });
-        const data = await res.json();
-        
-        if (method === 'PUT') {
-            return fetch(url, {
-                method: 'PUT',
-                headers,
-                body: JSON.stringify({
-                    message: "update",
-                    content: btoa(JSON.stringify(body, null, 2)),
-                    sha: data.sha
-                })
-            });
+        try {
+            const res = await fetch(url, { headers });
+            const data = await res.json();
+
+            if (method === 'GET') {
+                if (!data.content) return [];
+                lastSha[path.replace('.json', '')] = data.sha;
+                return JSON.parse(atob(data.content));
+            }
+
+            if (method === 'PUT') {
+                return fetch(url, {
+                    method: 'PUT',
+                    headers,
+                    body: JSON.stringify({
+                        message: "web_update",
+                        content: btoa(unescape(encodeURIComponent(JSON.stringify(body, null, 2)))),
+                        sha: data.sha
+                    })
+                });
+            }
+        } catch (e) {
+            console.error("Ошибка API:", e);
+            return [];
         }
-        return JSON.parse(atob(data.content));
     }
 
     async function handleAuth() {
@@ -60,44 +87,60 @@
         const pass = document.getElementById('pass').value;
         const progPass = document.getElementById('prog-pass').value;
 
+        if (!email || !pass || !progPass) return alert("Заполни все поля!");
+
         let users = await githubFetch('users.json');
         let user = users.find(u => u.email === email);
 
         if (!user) {
-            // Регистрация, если пользователя нет
             user = { email, pass, progPass, username: email.split('@')[0] };
             users.push(user);
             await githubFetch('users.json', 'PUT', users);
-            alert("Регистрация успешна!");
+            alert("Аккаунт создан! Теперь введите данные для входа.");
+            return;
         }
 
         if (user.pass === pass && user.progPass === progPass) {
             currentUser = user;
             document.getElementById('auth-form').classList.add('hidden');
             document.getElementById('messenger').classList.remove('hidden');
-            document.getElementById('user-title').innerText = `Вы: ${user.username}`;
+            document.getElementById('user-title').innerText = `@${user.username}`;
             loadMessages();
-            setInterval(loadMessages, 5000); // Обновление раз в 5 сек
+            setInterval(loadMessages, 4000); 
         } else {
-            alert("Ошибка данных!");
+            alert("Неверный пароль или пароль от проги!");
         }
     }
 
     async function loadMessages() {
         const msgs = await githubFetch('messages.json');
         const box = document.getElementById('chat-box');
-        box.innerHTML = msgs.map(m => `<div><b>${m.user}:</b> ${m.text}</div>`).join('');
-        box.scrollTop = box.scrollHeight;
+        const isAtBottom = box.scrollHeight - box.scrollTop <= box.clientHeight + 50;
+
+        box.innerHTML = msgs.map(m => `
+            <div class="msg ${m.user === currentUser.username ? 'own' : 'other'}">
+                <div class="user-info">${m.user}</div>
+                ${m.text}
+            </div>
+        `).join('');
+
+        if (isAtBottom) box.scrollTop = box.scrollHeight;
     }
 
     async function sendMessage() {
         const input = document.getElementById('msg-input');
-        if (!input.value) return;
+        const text = input.value.trim();
+        if (!text) return;
 
         let msgs = await githubFetch('messages.json');
-        msgs.push({ user: currentUser.username, text: input.value });
-        await githubFetch('messages.json', 'PUT', msgs);
+        msgs.push({ 
+            user: currentUser.username, 
+            text: text, 
+            time: new Date().toLocaleTimeString() 
+        });
+        
         input.value = '';
+        await githubFetch('messages.json', 'PUT', msgs);
         loadMessages();
     }
 </script>
