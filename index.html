@@ -2,45 +2,36 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>MELVPN Messenger</title>
+    <title>MELVPN Messenger FIXED</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: #e0e0e0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .container { background: #1e1e1e; padding: 25px; border-radius: 12px; width: 380px; border: 1px solid #333; box-shadow: 0 10px 30px rgba(0,0,0,0.7); }
-        h2 { color: #00ff88; text-align: center; margin-bottom: 20px; font-size: 1.5em; }
-        input { width: 100%; padding: 12px; margin: 8px 0; box-sizing: border-box; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: white; outline: none; }
-        input:focus { border-color: #00ff88; }
-        .btn-group { display: flex; gap: 10px; margin-top: 10px; }
-        button { width: 100%; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .btn-login { background: #00ff88; color: #000; }
-        .btn-reg { background: #333; color: #00ff88; border: 1px solid #00ff88; }
-        button:hover { opacity: 0.8; transform: translateY(-1px); }
-        #chat-box { height: 350px; overflow-y: auto; background: #141414; padding: 15px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #333; display: flex; flex-direction: column; }
-        .msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 8px; max-width: 85%; line-height: 1.4; }
-        .own { background: #005c4b; align-self: flex-end; border-bottom-right-radius: 2px; }
-        .other { background: #262626; align-self: flex-start; border-bottom-left-radius: 2px; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0b0b0b; color: #eee; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .container { background: #161616; padding: 25px; border-radius: 12px; width: 350px; border: 1px solid #333; box-shadow: 0 10px 30px #000; }
+        input { width: 100%; padding: 12px; margin: 10px 0; box-sizing: border-box; border-radius: 6px; border: 1px solid #444; background: #222; color: #0f8; outline: none; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 5px; }
+        .btn-login { background: #0f8; color: #000; }
+        .btn-reg { background: transparent; color: #0f8; border: 1px solid #0f8; }
+        #chat-box { height: 300px; overflow-y: auto; background: #000; padding: 10px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #222; }
         .hidden { display: none; }
-        small { display: block; font-size: 0.7em; margin-bottom: 4px; color: #00ff88; opacity: 0.8; }
+        .msg { margin-bottom: 8px; padding: 6px 10px; border-radius: 6px; font-size: 0.9em; background: #222; }
     </style>
 </head>
 <body>
 
 <div class="container" id="auth-form">
-    <h2>MELVPN CHAT</h2>
+    <h2 style="text-align:center; color:#0f8;">MELVPN CHAT</h2>
     <input type="email" id="email" placeholder="Email">
-    <input type="password" id="pass" placeholder="Пароль аккаунта">
+    <input type="password" id="pass" placeholder="Пароль">
     <input type="password" id="prog-pass" placeholder="Пароль от проги">
-    <div class="btn-group">
-        <button class="btn-login" onclick="handleAuth('login')">ВОЙТИ</button>
-        <button class="btn-reg" onclick="handleAuth('register')">РЕГИСТРАЦИЯ</button>
-    </div>
+    <button class="btn-login" onclick="handleAuth('login')">ВОЙТИ</button>
+    <button class="btn-reg" onclick="handleAuth('register')">РЕГИСТРАЦИЯ</button>
 </div>
 
 <div class="container hidden" id="messenger">
-    <h3 id="user-title" style="color:#00ff88; margin-top:0;"></h3>
+    <h3 id="user-title" style="color:#0f8;"></h3>
     <div id="chat-box"></div>
-    <div style="display:flex; gap: 8px;">
-        <input type="text" id="msg-input" placeholder="Сообщение..." onkeypress="if(event.key==='Enter') sendMessage()">
-        <button style="width: 70px; background:#00ff88; color:#000;" onclick="sendMessage()">➤</button>
+    <div style="display:flex; gap: 5px;">
+        <input type="text" id="msg-input" placeholder="Сообщение...">
+        <button style="width: 50px; background:#0f8;" onclick="sendMessage()">➤</button>
     </div>
 </div>
 
@@ -49,44 +40,44 @@
     const REPO = 'MELVPNBOT/Telegrammer';
     let currentUser = null;
 
-    async function githubApi(path, method = 'GET', body = null) {
+    // Чтение файла
+    async function getFileData(path) {
         const url = `https://api.github.com/repos/${REPO}/contents/${path}`;
-        const headers = { 
-            'Authorization': `token ${GITHUB_TOKEN}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'Cache-Control': 'no-cache'
+        const res = await fetch(url, {
+            headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Cache-Control': 'no-cache' }
+        });
+        
+        if (res.status === 404) return { content: [], sha: null };
+        const data = await res.json();
+        // Декодируем UTF-8 правильно
+        const str = decodeURIComponent(escape(atob(data.content)));
+        return { content: JSON.parse(str), sha: data.sha };
+    }
+
+    // Запись файла
+    async function saveFileData(path, body, sha) {
+        const url = `https://api.github.com/repos/${REPO}/contents/${path}`;
+        const payload = {
+            message: "web update",
+            content: btoa(unescape(encodeURIComponent(JSON.stringify(body, null, 2)))),
         };
+        if (sha) payload.sha = sha;
 
-        try {
-            const res = await fetch(url, { headers });
-            
-            if (res.status === 404 && method === 'GET') {
-                await fetch(url, {
-                    method: 'PUT',
-                    headers,
-                    body: JSON.stringify({ message: "init", content: btoa("[]") })
-                });
-                return [];
-            }
-
-            const data = await res.json();
-            if (method === 'GET') return JSON.parse(atob(data.content));
-
-            if (method === 'PUT') {
-                return fetch(url, {
-                    method: 'PUT',
-                    headers,
-                    body: JSON.stringify({
-                        message: "update",
-                        content: btoa(unescape(encodeURIComponent(JSON.stringify(body, null, 2)))),
-                        sha: data.sha
-                    })
-                });
-            }
-        } catch (e) {
-            console.error("Ошибка API:", e);
-            return [];
+        const res = await fetch(url, {
+            method: 'PUT',
+            headers: { 
+                'Authorization': `token ${GITHUB_TOKEN}`,
+                'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        if (!res.ok) {
+            const err = await res.json();
+            console.error("GitHub Error:", err);
+            alert("Ошибка GitHub: " + err.message);
         }
+        return res.ok;
     }
 
     async function handleAuth(type) {
@@ -94,22 +85,19 @@
         const pass = document.getElementById('pass').value.trim();
         const progPass = document.getElementById('prog-pass').value.trim();
 
-        if (!email || !pass || !progPass) return alert("Заполни все поля!");
+        if (!email || !pass || !progPass) return alert("Заполни всё!");
 
-        let users = await githubApi('users.json');
+        console.log(`Запрос к ${type}...`);
+        const { content: users, sha } = await getFileData('users.json');
         let user = users.find(u => u.email === email);
 
         if (type === 'register') {
-            if (user) return alert("Такой пользователь уже есть!");
-            
-            const newUser = { email, pass, progPass, username: email.split('@')[0] };
-            users.push(newUser);
-            await githubApi('users.json', 'PUT', users);
-            alert("Регистрация завершена! Теперь нажми 'ВОЙТИ'");
-        } 
-        else if (type === 'login') {
-            if (!user) return alert("Пользователь не найден!");
-            
+            if (user) return alert("Юзер уже есть!");
+            users.push({ email, pass, progPass, username: email.split('@')[0] });
+            const success = await saveFileData('users.json', users, sha);
+            if (success) alert("Регистрация OK! Нажми ВОЙТИ");
+        } else {
+            if (!user) return alert("Нет такого юзера!");
             if (user.pass === pass && user.progPass === progPass) {
                 currentUser = user;
                 document.getElementById('auth-form').classList.add('hidden');
@@ -118,36 +106,29 @@
                 loadMessages();
                 setInterval(loadMessages, 5000);
             } else {
-                alert("Неверный пароль или ключ доступа!");
+                alert("Неверные пароли!");
             }
         }
     }
 
     async function loadMessages() {
-        const msgs = await githubApi('messages.json');
+        const { content: msgs } = await getFileData('messages.json');
         const box = document.getElementById('chat-box');
-        const isAtBottom = box.scrollHeight - box.scrollTop <= box.clientHeight + 100;
-
-        box.innerHTML = msgs.map(m => `
-            <div class="msg ${m.user === currentUser.username ? 'own' : 'other'}">
-                <small>${m.user}</small>
-                <div>${m.text}</div>
-            </div>
-        `).join('');
-
-        if (isAtBottom) box.scrollTop = box.scrollHeight;
+        box.innerHTML = msgs.map(m => `<div class="msg"><b>${m.user}:</b> ${m.text}</div>`).join('');
+        box.scrollTop = box.scrollHeight;
     }
 
     async function sendMessage() {
         const input = document.getElementById('msg-input');
-        const val = input.value.trim();
-        if (!val) return;
-
-        input.value = '';
-        let msgs = await githubApi('messages.json');
-        msgs.push({ user: currentUser.username, text: val, ts: Date.now() });
-        await githubApi('messages.json', 'PUT', msgs);
-        loadMessages();
+        const text = input.value.trim();
+        if (!text) return;
+        
+        const { content: msgs, sha } = await getFileData('messages.json');
+        msgs.push({ user: currentUser.username, text });
+        if (await saveFileData('messages.json', msgs, sha)) {
+            input.value = '';
+            loadMessages();
+        }
     }
 </script>
 </body>
